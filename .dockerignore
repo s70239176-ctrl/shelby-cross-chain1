@@ -3,6 +3,6 @@ node_modules
 .env
 .env.local
 .env.*.local
-*.key
+.git
 .DS_Store
 *.log
