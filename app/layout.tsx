@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Providers } from "@/components/providers";
-import { NavBar }    from "@/components/nav-bar";
+import { Providers }  from "@/components/providers";
+import { NavBar }     from "@/components/nav-bar";
 
 export const metadata: Metadata = {
-  title:       "HotLink Cache — Shelby Cross-Chain Bridge",
-  description: "Decentralized hot-cache layer for cross-chain data with paid reads and provenance proofs",
+  title:       "Shelby Bridge — Cross-Chain Hot Storage",
+  description: "Store once on Shelby. Serve everywhere — Aptos · Solana · NEAR · Ethereum. Paid reads, cryptographic proofs, sub-second latency.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -15,22 +15,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
             <NavBar />
-            <main style={{ flex: 1, padding: "1.5rem 2rem", maxWidth: 1280, margin: "0 auto", width: "100%" }}>
+            <main style={{ flex: 1, maxWidth: 1200, margin: "0 auto", width: "100%", padding: "2rem" }}>
               {children}
             </main>
             <footer style={{
               borderTop: "1px solid var(--border)",
-              padding: "0.75rem 2rem",
+              padding: "1rem 2rem",
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              fontSize: 10, letterSpacing: "0.08em", color: "var(--text-tertiary)",
+              maxWidth: 1200, margin: "0 auto", width: "100%",
             }}>
-              <span>HOTLINK CACHE v0.1.0 · SHELBY PROTOCOL · SHELBYNET</span>
-              <span style={{ display: "flex", gap: "1rem" }}>
-                <a href="https://explorer.shelby.xyz/shelbynet" target="_blank" rel="noreferrer"
-                   style={{ color: "var(--text-tertiary)", textDecoration: "none" }}>EXPLORER ↗</a>
-                <a href="https://docs.shelby.xyz" target="_blank" rel="noreferrer"
-                   style={{ color: "var(--text-tertiary)", textDecoration: "none" }}>DOCS ↗</a>
+              <span style={{ fontSize: 11, color: "var(--text-4)", fontFamily: "var(--font-mono)" }}>
+                SHELBY BRIDGE · BUILT ON SHELBY PROTOCOL · SHELBYNET
               </span>
+              <div style={{ display: "flex", gap: "1.5rem" }}>
+                {[
+                  ["Explorer", "https://explorer.shelby.xyz/shelbynet"],
+                  ["Docs",     "https://docs.shelby.xyz"],
+                  ["Discord",  "https://discord.com/invite/shelbyserves"],
+                ].map(([label, href]) => (
+                  <a key={label} href={href} target="_blank" rel="noreferrer"
+                     style={{ fontSize: 11, color: "var(--text-3)", textDecoration: "none" }}>
+                    {label} ↗
+                  </a>
+                ))}
+              </div>
             </footer>
           </div>
         </Providers>

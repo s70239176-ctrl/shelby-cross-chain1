@@ -1,19 +1,14 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-
-# Single COPY ensures Railway BuildKit never serves a cached layer
-# that predates the app/ directory existing in the repo.
-COPY . .
-
+COPY package.json ./
 RUN npm install --legacy-peer-deps
-
+COPY . .
 ARG NEXT_PUBLIC_SHELBY_NETWORK=shelbynet
 ARG NEXT_PUBLIC_SHELBY_RPC_URL=https://api.shelbynet.shelby.xyz/shelby
 ARG NEXT_PUBLIC_SHELBY_EXPLORER_URL=https://explorer.shelby.xyz/shelbynet
 ARG NEXT_PUBLIC_APTOS_FULLNODE_URL=https://api.shelbynet.shelby.xyz/v1
 ARG NEXT_PUBLIC_SHELBY_CONTRACT_ADDRESS=0xc63d6a5efb0080a6029403131715bd4971e1149f7cc099aac69bb0069b3ddbf5
 ARG NEXT_PUBLIC_HOTLINK_MODULE_ADDRESS=""
-
 ENV NEXT_PUBLIC_SHELBY_NETWORK=$NEXT_PUBLIC_SHELBY_NETWORK \
     NEXT_PUBLIC_SHELBY_RPC_URL=$NEXT_PUBLIC_SHELBY_RPC_URL \
     NEXT_PUBLIC_SHELBY_EXPLORER_URL=$NEXT_PUBLIC_SHELBY_EXPLORER_URL \
@@ -22,10 +17,6 @@ ENV NEXT_PUBLIC_SHELBY_NETWORK=$NEXT_PUBLIC_SHELBY_NETWORK \
     NEXT_PUBLIC_HOTLINK_MODULE_ADDRESS=$NEXT_PUBLIC_HOTLINK_MODULE_ADDRESS \
     NEXT_TELEMETRY_DISABLED=1 \
     SKIP_ENV_VALIDATION=1
-
-# Verify app/ is present before building
-RUN ls -la && echo "--- app dir:" && ls -la app/
-
 RUN npm run build
 
 FROM node:20-alpine AS runner
