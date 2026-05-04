@@ -1,259 +1,170 @@
 "use client";
 /**
- * wallet-bar.tsx — zero npm deps, robust AIP-62 + legacy Petra detection
+ * wallet-bar.tsx — zero npm deps
  *
- * Detection strategy (in order):
- *  1. window.aptos_wallets Set (AIP-62 standard)
- *  2. window.aptos (legacy Petra — still present in many installs)
- *  3. "aptos:wallet-registered" DOM event (for late-registering wallets)
- *  4. Short polling loop (100ms × 10) to catch wallets that inject
- *     slightly after DOMContentLoaded
+ * Petra:  window.petra.connect() → { address, publicKey }
+ *   Docs: https://petra.app/docs/connect-to-petra
+ *   Detection: 'aptos' in window (Petra injects window.aptos AND window.petra)
+ *   The error "Direct usage of PetraApiClient through window.petra is deprecated"
+ *   was triggered by our code calling window.aptos internal methods.
+ *   The CORRECT call is: const wallet = window.aptos; wallet.connect()
+ *   Per petra.app/docs: check 'aptos' in window, then call window.aptos.connect()
  *
- * Solana: window.solana (Phantom standard, unchanged)
+ * Phantom: window.solana.connect() → { publicKey }
+ *   Docs: https://docs.phantom.app/solana/establishing-a-connection
  */
-import { useState, useEffect, useCallback, useRef } from "react";
-
-interface AptosWalletAccount {
-  address: Uint8Array | string;
-  publicKey?: Uint8Array;
-}
-interface AptosWallet {
-  name:     string;
-  icon:     string;
-  version?: string;
-  chains?:  string[];
-  features: Record<string, {
-    connect?:    () => Promise<{ accounts: AptosWalletAccount[] }>;
-    disconnect?: () => Promise<void>;
-  }>;
-  accounts: AptosWalletAccount[];
-}
-
-// Legacy Petra (window.aptos) interface
-interface LegacyAptos {
-  connect:      () => Promise<{ address: string; publicKey?: string }>;
-  disconnect:   () => Promise<void>;
-  isConnected:  () => Promise<boolean>;
-  account:      () => Promise<{ address: string }>;
-  network?:     () => Promise<string>;
-}
+import { useState, useEffect, useCallback } from "react";
 
 declare global {
   interface Window {
-    aptos?:         LegacyAptos;
-    aptos_wallets?: Set<AptosWallet>;
+    // Petra injects window.aptos — this IS the correct object per petra.app/docs
+    aptos?: {
+      connect:     () => Promise<{ address: string; publicKey: string }>;
+      disconnect:  () => Promise<void>;
+      isConnected: () => Promise<boolean>;
+      account:     () => Promise<{ address: string; publicKey: string }>;
+    };
+    // Phantom
     solana?: {
-      connect:    (o?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString: () => string } }>;
-      disconnect: () => Promise<void>;
-      publicKey?: { toString: () => string };
-      isPhantom?: boolean;
+      connect:     (o?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString: () => string } }>;
+      disconnect:  () => Promise<void>;
+      publicKey?:  { toString: () => string };
+      isPhantom?:  boolean;
     };
   }
 }
 
-function uint8ToHex(b: Uint8Array | string): string {
-  if (typeof b === "string") return b.startsWith("0x") ? b : `0x${b}`;
-  return "0x" + Array.from(b).map(x => x.toString(16).padStart(2,"0")).join("");
-}
 function shortAddr(a: string) {
+  if (!a) return "";
   const s = a.startsWith("0x") ? a : `0x${a}`;
-  return `${s.slice(0,6)}…${s.slice(-4)}`;
-}
-
-/** Wrap window.aptos (legacy) as an AptosWallet-shaped object */
-function makeLegacyWallet(legacy: LegacyAptos): AptosWallet {
-  return {
-    name: "Petra",
-    icon: "https://petra.app/favicon.ico",
-    features: {
-      "aptos:connect": {
-        connect: async () => {
-          const res = await legacy.connect();
-          return { accounts: [{ address: res.address }] };
-        },
-      },
-      "aptos:disconnect": {
-        disconnect: () => legacy.disconnect(),
-      },
-    },
-    accounts: [],
-  };
+  return `${s.slice(0, 6)}…${s.slice(-4)}`;
 }
 
 export function WalletBar() {
-  const [aptosWallets,    setAptosWallets]    = useState<AptosWallet[]>([]);
-  const [connectedWallet, setConnectedWallet] = useState<AptosWallet | null>(null);
-  const [aptosAddr,       setAptosAddr]       = useState<string | null>(null);
-  const [solanaAddr,      setSolanaAddr]       = useState<string | null>(null);
-  const [hasPhantom,      setHasPhantom]      = useState(false);
-  const [showPicker,      setShowPicker]      = useState(false);
-  const [busy,            setBusy]            = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const discoverWallets = useCallback(() => {
-    const found: AptosWallet[] = [];
-
-    // 1. AIP-62 standard set
-    if (window.aptos_wallets?.size) {
-      found.push(...window.aptos_wallets);
-    }
-
-    // 2. Legacy window.aptos (Petra fallback — still present in many versions)
-    if (window.aptos && !found.find(w => w.name === "Petra")) {
-      found.push(makeLegacyWallet(window.aptos));
-    }
-
-    if (found.length > 0) {
-      setAptosWallets(found);
-      // Stop polling once we've found something
-      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-    }
-    return found.length;
-  }, []);
+  const [aptosAddr,  setAptosAddr]  = useState<string | null>(null);
+  const [solanaAddr, setSolanaAddr] = useState<string | null>(null);
+  const [hasPetra,   setHasPetra]   = useState(false);
+  const [hasPhantom, setHasPhantom] = useState(false);
+  const [busy,       setBusy]       = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Initial check
-    discoverWallets();
-
-    // AIP-62 event listener
-    const onRegister = () => discoverWallets();
-    window.addEventListener("aptos:wallet-registered", onRegister);
-
-    // Poll for 2 seconds (20 × 100ms) — catches wallets that inject after DOMContentLoaded
+    // Detect wallets — poll briefly to handle extension injection timing
     let attempts = 0;
-    pollRef.current = setInterval(() => {
+    const poll = setInterval(() => {
       attempts++;
-      const found = discoverWallets();
-      if (found > 0 || attempts >= 20) {
-        clearInterval(pollRef.current!);
-        pollRef.current = null;
-      }
-    }, 100);
+      const petra   = "aptos"  in window && !!window.aptos;
+      const phantom = "solana" in window && !!window.solana;
+      if (petra)   setHasPetra(true);
+      if (phantom) setHasPhantom(true);
+      if ((petra && phantom) || attempts >= 20) clearInterval(poll);
+    }, 150);
 
-    // Solana
-    setHasPhantom(!!window.solana);
-    if (window.solana?.publicKey) setSolanaAddr(window.solana.publicKey.toString());
+    // Restore Solana session
+    if (window.solana?.publicKey) {
+      setSolanaAddr(window.solana.publicKey.toString());
+    }
 
-    return () => {
-      window.removeEventListener("aptos:wallet-registered", onRegister);
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [discoverWallets]);
+    // Restore Aptos session
+    (async () => {
+      try {
+        if (window.aptos && await window.aptos.isConnected()) {
+          const acc = await window.aptos.account();
+          setAptosAddr(acc.address);
+        }
+      } catch { /* not connected */ }
+    })();
 
-  // Close picker on outside click
-  useEffect(() => {
-    if (!showPicker) return;
-    const close = () => setShowPicker(false);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, [showPicker]);
-
-  const connectAptos = useCallback(async (wallet: AptosWallet) => {
-    setShowPicker(false);
-    setBusy(true);
-    try {
-      const feature = wallet.features["aptos:connect"];
-      if (!feature?.connect) throw new Error(`${wallet.name} missing aptos:connect`);
-      const result  = await feature.connect();
-      const account = result?.accounts?.[0];
-      if (!account) throw new Error("No account returned");
-      const addr = uint8ToHex(account.address);
-      setAptosAddr(addr);
-      setConnectedWallet(wallet);
-      sessionStorage.setItem("aptos_address", addr);
-    } catch (e) {
-      console.error("[wallet]", e);
-      alert(`Connect failed: ${e instanceof Error ? e.message : String(e)}`);
-    } finally { setBusy(false); }
+    return () => clearInterval(poll);
   }, []);
 
-  const disconnectAptos = useCallback(async () => {
+  // ── Petra connect ─────────────────────────────────────────────────────────
+  const connectPetra = useCallback(async () => {
+    if (!window.aptos) {
+      window.open("https://petra.app", "_blank");
+      return;
+    }
+    setBusy(true);
     try {
-      const f = connectedWallet?.features["aptos:disconnect"];
-      if (f?.disconnect) await f.disconnect();
-    } catch { /* ignore */ }
-    setAptosAddr(null);
-    setConnectedWallet(null);
-    sessionStorage.removeItem("aptos_address");
-  }, [connectedWallet]);
+      // This is the exact pattern from petra.app/docs/connect-to-petra
+      const response = await window.aptos.connect();
+      setAptosAddr(response.address);
+      sessionStorage.setItem("aptos_address", response.address);
+    } catch (e: unknown) {
+      // Code 4001 = user rejected
+      const err = e as { code?: number; message?: string };
+      if (err?.code !== 4001) {
+        alert(`Petra connect failed: ${err?.message ?? String(e)}`);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }, []);
 
-  const connectSolana = useCallback(async () => {
-    if (!window.solana) { window.open("https://phantom.app","_blank"); return; }
+  const disconnectPetra = useCallback(async () => {
+    try { await window.aptos?.disconnect(); } catch { /* ignore */ }
+    setAptosAddr(null);
+    sessionStorage.removeItem("aptos_address");
+  }, []);
+
+  // ── Phantom connect ───────────────────────────────────────────────────────
+  const connectPhantom = useCallback(async () => {
+    if (!window.solana) {
+      window.open("https://phantom.app", "_blank");
+      return;
+    }
     setBusy(true);
     try {
       const { publicKey } = await window.solana.connect();
       const addr = publicKey.toString();
       setSolanaAddr(addr);
       sessionStorage.setItem("solana_address", addr);
-    } catch (e) { console.error("[wallet]", e); }
-    finally { setBusy(false); }
+    } catch (e: unknown) {
+      const err = e as { code?: number };
+      if (err?.code !== 4001) console.error("Phantom connect:", e);
+    } finally {
+      setBusy(false);
+    }
   }, []);
 
-  const disconnectSolana = useCallback(async () => {
+  const disconnectPhantom = useCallback(async () => {
     try { await window.solana?.disconnect(); } catch { /* ignore */ }
     setSolanaAddr(null);
     sessionStorage.removeItem("solana_address");
   }, []);
 
   return (
-    <div style={{ display:"flex", gap:"0.5rem", alignItems:"center" }}>
+    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
 
-      {/* ── Aptos ────────────────────────────────────────────────────────── */}
+      {/* Petra */}
       {aptosAddr ? (
-        <button className="wallet-pill connected" onClick={disconnectAptos}>
+        <button className="wallet-pill connected" onClick={disconnectPetra}>
           <span style={{ width:6,height:6,borderRadius:"50%",background:"var(--green)",display:"inline-block" }} />
-          {connectedWallet?.name ?? "Aptos"} · {shortAddr(aptosAddr)}
+          Petra · {shortAddr(aptosAddr)}
         </button>
-      ) : aptosWallets.length === 1 ? (
-        /* Single wallet — connect directly, no picker needed */
-        <button className="wallet-pill" disabled={busy} onClick={() => connectAptos(aptosWallets[0])}>
-          Connect {aptosWallets[0].name}
-        </button>
-      ) : aptosWallets.length > 1 ? (
-        /* Multiple wallets — show picker */
-        <div style={{ position:"relative" }}>
-          <button className="wallet-pill" disabled={busy}
-            onClick={e => { e.stopPropagation(); setShowPicker(v => !v); }}>
-            Connect Aptos ▾
-          </button>
-          {showPicker && (
-            <div onClick={e => e.stopPropagation()} style={{
-              position:"absolute", top:"calc(100% + 6px)", right:0,
-              background:"var(--bg-raised)", border:"1px solid var(--border-bright)",
-              borderRadius:10, padding:"0.35rem", zIndex:200, minWidth:180,
-              boxShadow:"0 8px 32px rgba(0,0,0,0.6)",
-            }}>
-              {aptosWallets.map(w => (
-                <button key={w.name} onClick={() => connectAptos(w)} style={{
-                  display:"flex", alignItems:"center", gap:10, width:"100%",
-                  padding:"0.5rem 0.75rem", background:"none", border:"none",
-                  cursor:"pointer", color:"var(--text-1)", fontSize:13,
-                  fontFamily:"var(--font-sans)", borderRadius:6, textAlign:"left",
-                }}>
-                  {w.icon && <img src={w.icon} alt="" width={20} height={20} style={{ borderRadius:4 }} />}
-                  {w.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       ) : (
-        /* Nothing detected yet — offer install */
-        <button className="wallet-pill" onClick={() => window.open("https://petra.app","_blank")}>
-          Install Petra
+        <button
+          className="wallet-pill"
+          onClick={connectPetra}
+          disabled={busy}
+        >
+          {hasPetra ? "Connect Petra" : "Install Petra"}
         </button>
       )}
 
-      {/* ── Solana ───────────────────────────────────────────────────────── */}
+      {/* Phantom */}
       {solanaAddr ? (
-        <button className="wallet-pill connected" onClick={disconnectSolana}>
+        <button className="wallet-pill connected" onClick={disconnectPhantom}>
           <span style={{ width:6,height:6,borderRadius:"50%",background:"var(--purple)",display:"inline-block" }} />
           Phantom · {solanaAddr.slice(0,4)}…{solanaAddr.slice(-4)}
         </button>
       ) : (
-        <button className="wallet-pill" onClick={connectSolana} disabled={busy}>
+        <button
+          className="wallet-pill"
+          onClick={connectPhantom}
+          disabled={busy}
+        >
           {hasPhantom ? "Connect Phantom" : "Install Phantom"}
         </button>
       )}
