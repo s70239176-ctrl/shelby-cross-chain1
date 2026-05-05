@@ -3,17 +3,12 @@ const nextConfig = {
   output: "standalone",
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
-
-  // Prevent webpack from trying to bundle Node.js-only packages (got, etc.)
-  // that are deep dependencies of @aptos-labs/ts-sdk.
-  // These packages are only used at runtime in server components/API routes,
-  // never bundled into client JS.
+  // Keep all Aptos/Shelby packages server-side only — they use Node.js APIs
+  // (got, fs, etc.) that webpack can't bundle for the browser.
   serverExternalPackages: [
+    "@shelby-protocol/sdk",
     "@aptos-labs/ts-sdk",
     "@aptos-labs/aptos-client",
-    "@aptos-labs/wallet-standard",
-    "@wallet-standard/core",
   ],
 };
-
 module.exports = nextConfig;

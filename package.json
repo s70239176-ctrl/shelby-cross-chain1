@@ -9,8 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@aptos-labs/wallet-standard": "^1.0.0",
     "@aptos-labs/ts-sdk": "^6.3.1",
+    "@aptos-labs/wallet-standard": "^1.0.0",
+    "@shelby-protocol/sdk": "latest",
     "@wallet-standard/core": "^1.1.1",
     "next": "^15.0.7",
     "react": "^18.3.0",
