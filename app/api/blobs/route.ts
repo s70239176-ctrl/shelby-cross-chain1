@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
       apiKey,
       fullnodeUrl: fullnode,
       shelbyUrl,
+      indexer: { endpoint: process.env.APTOS_INDEXER_URL ?? "https://api.shelbynet.shelby.xyz/v1/graphql" },
       // Required: indexer endpoint for shelbynet
       indexer: { endpoint: indexer },
     });
