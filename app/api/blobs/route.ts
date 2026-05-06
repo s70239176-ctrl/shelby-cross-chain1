@@ -36,13 +36,9 @@ export async function POST(req: NextRequest) {
     const { Account, Ed25519PrivateKey, Network } = await import("@aptos-labs/ts-sdk");
 
     const client = new ShelbyNodeClient({
-      network:     Network.CUSTOM,
-      apiKey,
-      fullnodeUrl: fullnode,
-      shelbyUrl,
-      // Required: indexer endpoint for shelbynet
-      indexer: { endpoint: indexer },
-    });
+  network: Network.SHELBYNET,
+  apiKey,
+});
 
     const account = Account.fromPrivateKey({
       privateKey: new Ed25519PrivateKey(privKey),
