@@ -1,0 +1,12 @@
+[1mdiff --git a/app/api/blobs/route.ts b/app/api/blobs/route.ts[m
+[1mindex b2613ea..4668639 100644[m
+[1m--- a/app/api/blobs/route.ts[m
+[1m+++ b/app/api/blobs/route.ts[m
+[36m@@ -40,6 +40,7 @@[m [mexport async function POST(req: NextRequest) {[m
+       apiKey,[m
+       fullnodeUrl: fullnode,[m
+       shelbyUrl,[m
+[32m+[m[32m      indexer: { endpoint: process.env.APTOS_INDEXER_URL ?? "https://api.shelbynet.shelby.xyz/v1/graphql" },[m
+       // Required: indexer endpoint for shelbynet[m
+       indexer: { endpoint: indexer },[m
+     });[m
