@@ -13,8 +13,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKey   = process.env.SHELBY_API_KEY;
-    const privKey  = process.env.APTOS_PRIVATE_KEY;
+    const apiKey  = process.env.SHELBY_API_KEY;
+    const privKey = process.env.APTOS_PRIVATE_KEY;
     if (!apiKey)  return NextResponse.json({ error: "SHELBY_API_KEY not set in Railway Variables" }, { status: 500 });
     if (!privKey) return NextResponse.json({ error: "APTOS_PRIVATE_KEY not set in Railway Variables" }, { status: 500 });
 
@@ -28,36 +28,39 @@ export async function POST(req: NextRequest) {
     const bytes            = new Uint8Array(await file.arrayBuffer());
     const expirationMicros = Date.now() * 1000 + ttlSeconds * 1_000_000;
     const net              = process.env.SHELBY_NETWORK ?? "shelbynet";
-    const fullnode         = process.env.APTOS_FULLNODE_URL  ?? "https://api.shelbynet.shelby.xyz/v1";
-    const indexer          = process.env.APTOS_INDEXER_URL   ?? "https://api.shelbynet.shelby.xyz/v1/graphql";
-    const shelbyUrl        = process.env.SHELBY_RPC_URL      ?? "https://api.shelbynet.shelby.xyz/shelby";
 
     const { ShelbyNodeClient } = await import("@shelby-protocol/sdk/node");
     const { Account, Ed25519PrivateKey, Network } = await import("@aptos-labs/ts-sdk");
 
     const client = new ShelbyNodeClient({
-  network: Network.SHELBYNET,
-  apiKey,
-});
+      network: Network.SHELBYNET,
+      apiKey,
+    });
 
     const account = Account.fromPrivateKey({
       privateKey: new Ed25519PrivateKey(privKey),
     });
 
-    const result = await client.upload({
+    // upload() returns void — blob ID is deterministic: ownerAddress/blobName
+    await client.upload({
       blobData:         bytes,
       signer:           account,
       blobName,
       expirationMicros,
     });
 
-    const blobId = result.blobId ?? result.blob_id ?? "";
+    // Construct the canonical blob identifier: "{ownerAddress}/{blobName}"
+    // This is how Shelby identifies blobs on-chain and in the explorer
+    const ownerAddress = account.accountAddress.toString();
+    const canonicalId  = `${ownerAddress}/${blobName}`;
+
     return NextResponse.json({
-      blobId,
-      transactionHash: result.transactionHash ?? result.transaction_hash ?? "",
-      commitmentHash:  result.commitmentHash  ?? result.commitment_hash  ?? blobId,
+      blobId:          canonicalId,
+      ownerAddress,
+      blobName,
       sizeBytes:       bytes.byteLength,
-      explorerUrl:     `https://explorer.shelby.xyz/${net}/blob/${blobId}`,
+      expirationMicros: expirationMicros.toString(),
+      explorerUrl:     `https://explorer.shelby.xyz/${net}/account/${ownerAddress}`,
     });
 
   } catch (err) {
