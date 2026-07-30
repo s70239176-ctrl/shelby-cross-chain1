@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBlobMeta } from "@/lib/shelby";
+import { getBlobMeta } from "../../../lib/shelby";
 
 export async function GET(req: NextRequest) {
   const blobId = req.nextUrl.searchParams.get("blobId");

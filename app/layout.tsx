@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Providers }  from "@/components/providers";
-import { NavBar }     from "@/components/nav-bar";
+import { Providers }  from "../components/providers";
+import { NavBar }     from "../components/nav-bar";
 
 export const metadata: Metadata = {
   title:       "Shelby Bridge — Cross-Chain Hot Storage",
