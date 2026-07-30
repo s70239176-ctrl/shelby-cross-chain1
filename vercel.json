@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm install --legacy-peer-deps && npm run build",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "functions": {
+    "app/api/**": {
+      "maxDuration": 60
+    }
+  }
+}
