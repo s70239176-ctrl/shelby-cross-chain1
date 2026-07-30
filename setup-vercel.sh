@@ -1,6 +1,5 @@
 #!/bin/sh
-# Shelby Bridge (Vercel) — run in your git repo root
-# Then: git add -A && git commit -m "deploy: Vercel" && git push origin main
+# Shelby Bridge (Vercel) — run in your repo root
 set -e
 
 printf "%s" "bm9kZV9tb2R1bGVzCi5uZXh0Ci5lbnYKLmVudi5sb2NhbAouZW52LioubG9jYWwKLmdpdAouRFNfU3RvcmUKKi5sb2cK" | base64 -d > ".dockerignore"
@@ -88,13 +87,11 @@ echo "  public/.gitkeep"
 printf "%s" "LyoqIEB0eXBlIHtpbXBvcnQoJ3RhaWx3aW5kY3NzJykuQ29uZmlnfSAqLwptb2R1bGUuZXhwb3J0cyA9IHsKICBjb250ZW50OiBbIi4vYXBwLyoqLyoue3RzLHRzeH0iLCAiLi9jb21wb25lbnRzLyoqLyoue3RzLHRzeH0iLCAiLi9saWIvKiovKi57dHMsdHN4fSJdLAogIHRoZW1lOiB7IGV4dGVuZDoge30gfSwKICBwbHVnaW5zOiBbXSwKfTsK" | base64 -d > "tailwind.config.js"
 echo "  tailwind.config.js"
 
-printf "%s" "ewogICJjb21waWxlck9wdGlvbnMiOiB7CiAgICAidGFyZ2V0IjogIkVTMjAyMiIsCiAgICAibGliIjogWyJkb20iLCAiZG9tLml0ZXJhYmxlIiwgImVzbmV4dCJdLAogICAgImFsbG93SnMiOiB0cnVlLAogICAgInNraXBMaWJDaGVjayI6IHRydWUsCiAgICAic3RyaWN0IjogZmFsc2UsCiAgICAibm9FbWl0IjogdHJ1ZSwKICAgICJlc01vZHVsZUludGVyb3AiOiB0cnVlLAogICAgIm1vZHVsZSI6ICJlc25leHQiLAogICAgIm1vZHVsZVJlc29sdXRpb24iOiAiYnVuZGxlciIsCiAgICAicmVzb2x2ZUpzb25Nb2R1bGUiOiB0cnVlLAogICAgImlzb2xhdGVkTW9kdWxlcyI6IHRydWUsCiAgICAianN4IjogInByZXNlcnZlIiwKICAgICJpbmNyZW1lbnRhbCI6IHRydWUsCiAgICAicGx1Z2lucyI6IFt7ICJuYW1lIjogIm5leHQiIH1dLAogICAgInBhdGhzIjogeyAiQC8qIjogWyIuLyoiXSB9CiAgfSwKICAiaW5jbHVkZSI6IFsibmV4dC1lbnYuZC50cyIsICIqKi8qLnRzIiwgIioqLyoudHN4IiwgIi5uZXh0L3R5cGVzLyoqLyoudHMiXSwKICAiZXhjbHVkZSI6IFsibm9kZV9tb2R1bGVzIl0KfQo=" | base64 -d > "tsconfig.json"
+printf "%s" "ewogICJjb21waWxlck9wdGlvbnMiOiB7CiAgICAidGFyZ2V0IjogIkVTMjAyMiIsCiAgICAibGliIjogWyJkb20iLCAiZG9tLml0ZXJhYmxlIiwgImVzbmV4dCJdLAogICAgImFsbG93SnMiOiB0cnVlLAogICAgInNraXBMaWJDaGVjayI6IHRydWUsCiAgICAic3RyaWN0IjogZmFsc2UsCiAgICAibm9FbWl0IjogdHJ1ZSwKICAgICJlc01vZHVsZUludGVyb3AiOiB0cnVlLAogICAgIm1vZHVsZSI6ICJlc25leHQiLAogICAgIm1vZHVsZVJlc29sdXRpb24iOiAiYnVuZGxlciIsCiAgICAicmVzb2x2ZUpzb25Nb2R1bGUiOiB0cnVlLAogICAgImlzb2xhdGVkTW9kdWxlcyI6IHRydWUsCiAgICAianN4IjogInByZXNlcnZlIiwKICAgICJpbmNyZW1lbnRhbCI6IHRydWUsCiAgICAicGx1Z2lucyI6IFt7ICJuYW1lIjogIm5leHQiIH1dLAogICAgImJhc2VVcmwiOiAiLiIsCiAgICAicGF0aHMiOiB7ICJALyoiOiBbIi4vKiJdIH0KICB9LAogICJpbmNsdWRlIjogWyJuZXh0LWVudi5kLnRzIiwgIioqLyoudHMiLCAiKiovKi50c3giLCAiLm5leHQvdHlwZXMvKiovKi50cyJdLAogICJleGNsdWRlIjogWyJub2RlX21vZHVsZXMiXQp9Cg==" | base64 -d > "tsconfig.json"
 echo "  tsconfig.json"
 
 printf "%s" "ewogICJidWlsZENvbW1hbmQiOiAibnBtIGluc3RhbGwgLS1sZWdhY3ktcGVlci1kZXBzICYmIG5wbSBydW4gYnVpbGQiLAogICJmcmFtZXdvcmsiOiAibmV4dGpzIiwKICAicmVnaW9ucyI6IFsiaWFkMSJdLAogICJmdW5jdGlvbnMiOiB7CiAgICAiYXBwL2FwaS8qKiI6IHsKICAgICAgIm1heER1cmF0aW9uIjogNjAKICAgIH0KICB9Cn0K" | base64 -d > "vercel.json"
 echo "  vercel.json"
 
 echo ""
-echo "Done. Now run:"
-echo "  git add -A && git commit -m \"deploy: Vercel\" && git push origin main"
-echo "  Then import repo at vercel.com/new"
+echo "Done: git add -A && git commit -m \"fix: tsconfig baseUrl\" && git push origin main"
