@@ -2,7 +2,6 @@
 # Shelby Bridge (Vercel)
 set -e
 
-# Remove old files that cause cache conflicts
 rm -f postcss.config.js tailwind.config.js app/globals.css
 
 printf "%s" "bm9kZV9tb2R1bGVzCi5uZXh0Ci5lbnYKLmVudi5sb2NhbAouZW52LioubG9jYWwKLmdpdAouRFNfU3RvcmUKKi5sb2cK" | base64 -d > ".dockerignore"
@@ -91,4 +90,4 @@ printf "%s" "ewogICJidWlsZENvbW1hbmQiOiAibnBtIGluc3RhbGwgLS1sZWdhY3ktcGVlci1kZXB
 echo "  vercel.json"
 
 echo ""
-echo "Done: git add -A && git commit -m \"fix: rename to styles.css, remove postcss\" && git push origin main"
+echo "Done: git add -A && git commit -m \"fix: restore TS deps\" && git push origin main"
