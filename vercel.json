@@ -3,8 +3,9 @@
   "framework": "nextjs",
   "regions": ["iad1"],
   "functions": {
-    "app/api/**": {
-      "maxDuration": 60
-    }
+    "app/api/blobs/route.ts": { "maxDuration": 10 },
+    "app/api/read/route.ts":  { "maxDuration": 10 },
+    "app/api/health/route.ts": { "maxDuration": 10 },
+    "app/api/analytics/route.ts": { "maxDuration": 10 }
   }
 }
