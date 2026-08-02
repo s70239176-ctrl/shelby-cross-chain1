@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBlobMeta } from "../../../lib/shelby";
+import { ensureClayWasm } from "../../../lib/clay-wasm";
 
 export async function GET(req: NextRequest) {
   const blobId = req.nextUrl.searchParams.get("blobId");
@@ -18,51 +19,6 @@ function cleanPrivateKey(raw: string): string {
   key = key.replace(/\s+/g, "");
   if (key.length === 63) key = "0" + key;
   return "0x" + key;
-}
-
-async function ensureClayWasm() {
-  const fs   = await import("fs/promises");
-  const path = await import("path");
-
-  // All known locations Vercel might install clay-codes
-  const destPaths = [
-    "/var/task/node_modules/@shelby-protocol/clay-codes/dist/clay.wasm",
-    path.join(process.cwd(), "node_modules/@shelby-protocol/clay-codes/dist/clay.wasm"),
-  ];
-
-  // Source: clay.wasm we committed to public/
-  const srcPaths = [
-    path.join(process.cwd(), "public", "clay.wasm"),
-    "/var/task/public/clay.wasm",
-    path.join(process.cwd(), ".next", "static", "clay.wasm"),
-  ];
-
-  // Find the source
-  let wasmBytes: Buffer | null = null;
-  for (const src of srcPaths) {
-    try {
-      wasmBytes = await fs.readFile(src);
-      console.log(`[clay-wasm] Source found at: ${src}`);
-      break;
-    } catch { /* try next */ }
-  }
-
-  if (!wasmBytes) {
-    throw new Error(`clay.wasm source not found. Tried: ${srcPaths.join(", ")}`);
-  }
-
-  // Write to all dest paths
-  for (const dest of destPaths) {
-    try {
-      // Check if already exists
-      try { await fs.access(dest); continue; } catch { /* write it */ }
-      await fs.mkdir(path.dirname(dest), { recursive: true });
-      await fs.writeFile(dest, wasmBytes);
-      console.log(`[clay-wasm] Written to: ${dest}`);
-    } catch (e) {
-      console.warn(`[clay-wasm] Could not write to ${dest}:`, e);
-    }
-  }
 }
 
 export async function POST(req: NextRequest) {
@@ -87,6 +43,7 @@ export async function POST(req: NextRequest) {
     if (!file)     return NextResponse.json({ error: "No file provided" }, { status: 400 });
     if (!blobName) return NextResponse.json({ error: "blobName is required" }, { status: 400 });
 
+    // Write clay.wasm from embedded base64 to where the SDK expects it
     await ensureClayWasm();
 
     const bytes            = new Uint8Array(await file.arrayBuffer());
