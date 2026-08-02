@@ -21,36 +21,47 @@ function cleanPrivateKey(raw: string): string {
 }
 
 async function ensureClayWasm() {
-  // The clay-codes SDK locates clay.wasm relative to its own dist/ directory
-  // using fileURLToPath(import.meta.url). On Vercel, the function bundle
-  // strips .wasm files. We ship clay.wasm in public/ and copy it to the
-  // expected node_modules path at runtime before the SDK loads.
-  const { readFile, writeFile, mkdir } = await import("fs/promises");
-  const { resolve, dirname } = await import("path");
-  const { createRequire } = await import("module");
+  const fs   = await import("fs/promises");
+  const path = await import("path");
 
-  try {
-    // Find where clay-codes is installed
-    const req      = createRequire(import.meta.url);
-    const clayPkg  = req.resolve("@shelby-protocol/clay-codes/dist/index-node.js");
-    const clayDist = dirname(clayPkg);
-    const wasmDest = resolve(clayDist, "clay.wasm");
+  // All known locations Vercel might install clay-codes
+  const destPaths = [
+    "/var/task/node_modules/@shelby-protocol/clay-codes/dist/clay.wasm",
+    path.join(process.cwd(), "node_modules/@shelby-protocol/clay-codes/dist/clay.wasm"),
+  ];
 
-    // Check if it already exists
+  // Source: clay.wasm we committed to public/
+  const srcPaths = [
+    path.join(process.cwd(), "public", "clay.wasm"),
+    "/var/task/public/clay.wasm",
+    path.join(process.cwd(), ".next", "static", "clay.wasm"),
+  ];
+
+  // Find the source
+  let wasmBytes: Buffer | null = null;
+  for (const src of srcPaths) {
     try {
-      await readFile(wasmDest);
-      return; // already there
-    } catch { /* not found — copy it */ }
+      wasmBytes = await fs.readFile(src);
+      console.log(`[clay-wasm] Source found at: ${src}`);
+      break;
+    } catch { /* try next */ }
+  }
 
-    // Read from public/ (always included by Vercel)
-    const wasmSrc = resolve(process.cwd(), "public", "clay.wasm");
-    const wasmBytes = await readFile(wasmSrc);
-    await mkdir(clayDist, { recursive: true });
-    await writeFile(wasmDest, wasmBytes);
-    console.log(`[clay-wasm] Copied to ${wasmDest}`);
-  } catch (e) {
-    console.error("[clay-wasm] Could not copy clay.wasm:", e);
-    throw new Error(`clay.wasm setup failed: ${e instanceof Error ? e.message : String(e)}`);
+  if (!wasmBytes) {
+    throw new Error(`clay.wasm source not found. Tried: ${srcPaths.join(", ")}`);
+  }
+
+  // Write to all dest paths
+  for (const dest of destPaths) {
+    try {
+      // Check if already exists
+      try { await fs.access(dest); continue; } catch { /* write it */ }
+      await fs.mkdir(path.dirname(dest), { recursive: true });
+      await fs.writeFile(dest, wasmBytes);
+      console.log(`[clay-wasm] Written to: ${dest}`);
+    } catch (e) {
+      console.warn(`[clay-wasm] Could not write to ${dest}:`, e);
+    }
   }
 }
 
@@ -65,7 +76,7 @@ export async function POST(req: NextRequest) {
     const keyHex  = privKey.replace(/^0x/i, "");
     if (keyHex.length !== 64) {
       return NextResponse.json({
-        error: `APTOS_PRIVATE_KEY wrong length: got ${keyHex.length} chars, need 64. Starts with: "${rawKey.slice(0,20)}…"`,
+        error: `APTOS_PRIVATE_KEY wrong length: got ${keyHex.length} chars, need 64. Starts with: "${rawKey.slice(0, 20)}…"`,
       }, { status: 500 });
     }
 
@@ -76,28 +87,27 @@ export async function POST(req: NextRequest) {
     if (!file)     return NextResponse.json({ error: "No file provided" }, { status: 400 });
     if (!blobName) return NextResponse.json({ error: "blobName is required" }, { status: 400 });
 
-    // Ensure clay.wasm is in place before SDK loads
     await ensureClayWasm();
 
     const bytes            = new Uint8Array(await file.arrayBuffer());
     const expirationMicros = Date.now() * 1000 + ttlSeconds * 1_000_000;
     const net              = process.env.SHELBY_NETWORK ?? "shelbynet";
 
-    const { ShelbyNodeClient }                       = await import("@shelby-protocol/sdk/node");
-    const { Account, Ed25519PrivateKey, Network }    = await import("@aptos-labs/ts-sdk");
+    const { ShelbyNodeClient }                    = await import("@shelby-protocol/sdk/node");
+    const { Account, Ed25519PrivateKey, Network } = await import("@aptos-labs/ts-sdk");
 
-    const client = new ShelbyNodeClient({ network: Network.SHELBYNET, apiKey });
+    const client  = new ShelbyNodeClient({ network: Network.SHELBYNET, apiKey });
     const account = Account.fromPrivateKey({ privateKey: new Ed25519PrivateKey(privKey) });
 
     await client.upload({ blobData: bytes, signer: account, blobName, expirationMicros });
 
     const ownerAddress = account.accountAddress.toString();
     return NextResponse.json({
-      blobId:       `${ownerAddress}/${blobName}`,
+      blobId:      `${ownerAddress}/${blobName}`,
       ownerAddress,
       blobName,
-      sizeBytes:    String(bytes.byteLength),
-      explorerUrl:  `https://explorer.shelby.xyz/${net}/account/${ownerAddress}`,
+      sizeBytes:   String(bytes.byteLength),
+      explorerUrl: `https://explorer.shelby.xyz/${net}/account/${ownerAddress}`,
     });
 
   } catch (err) {
