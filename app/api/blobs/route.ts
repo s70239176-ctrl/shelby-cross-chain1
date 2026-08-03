@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getBlobMeta } from "../../../lib/shelby";
 import { ensureClayWasm } from "../../../lib/clay-wasm";
 
+// Patch wasm loader at module load time (before any SDK import)
+ensureClayWasm();
+
 export async function GET(req: NextRequest) {
   const blobId = req.nextUrl.searchParams.get("blobId");
   try {
@@ -42,9 +45,6 @@ export async function POST(req: NextRequest) {
     const ttlSeconds = Number(form.get("ttlSeconds") ?? 604800);
     if (!file)     return NextResponse.json({ error: "No file provided" }, { status: 400 });
     if (!blobName) return NextResponse.json({ error: "blobName is required" }, { status: 400 });
-
-    // Write clay.wasm from embedded base64 to where the SDK expects it
-    await ensureClayWasm();
 
     const bytes            = new Uint8Array(await file.arrayBuffer());
     const expirationMicros = Date.now() * 1000 + ttlSeconds * 1_000_000;
